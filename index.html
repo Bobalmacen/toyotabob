@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Toyota Bobby Almacen</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for a modern, dark dashboard feel */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FFFFFF; /* <<<< CHANGED TO WHITE */
+            overflow: hidden;
+        }
+
+        /* --- SPLASH SCREEN STYLES --- */
+        #splash-screen {
+            position: fixed;
+            inset: 0;
+            background-color: #FFFFFF; /* <<<< CHANGED TO WHITE */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.5s ease-out;
+            opacity: 1;
+        }
+        /* Hide main dashboard until loaded */
+        #main-container {
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        /* --- DASHBOARD STYLES (Existing) --- */
+        .mode-button {
+            transition: color 0.3s, transform 0.1s;
+            cursor: pointer;
+            font-weight: 600;
+            user-select: none;
+            flex-grow: 1;
+            text-align: center;
+        }
+        .mode-button:active {
+            transform: scale(0.98);
+        }
+        #car-display-container::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at center, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.2) 60%, rgba(255, 255, 255, 1) 100%);
+            pointer-events: none;
+        }
+        #message-box {
+            z-index: 100;
+            transition: opacity 0.3s, transform 0.3s;
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.95);
+        }
+        #message-box.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1);
+        }
+        #car-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; 
+            opacity: 1; 
+            transition: opacity 0.5s;
+        }
+        #car-display-container {
+            background-color: #FFFFFF;
+        }
+        .resizable-panel {
+            flex-grow: 0; 
+            flex-shrink: 0; 
+            min-width: 30%; 
+            max-width: 70%; 
+        }
+        .no-select {
+            user-select: none;
+            cursor: col-resize;
+        }
+    </style>
+</head>
+<body class="h-screen">
+    
+    <div id="splash-screen">
+        <div id="splash-video-container" class="w-full h-full max-w-xl max-h-xl overflow-hidden">
+        </div>
+    </div>
+    
+    <div id="message-box" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-[1001]">
+        <div class="bg-gray-900 p-6 rounded-xl shadow-2xl max-w-lg w-full text-white border border-red-500">
+            <h3 id="msg-title" class="text-xl font-bold mb-3 text-red-400">Title</h3>
+            <p id="msg-content" class="mb-4 text-gray-200 text-sm leading-relaxed"></p>
+            <div id="msg-sources" class="text-xs text-gray-500 mt-2 space-y-1"></div>
+            <button id="msg-close-button" class="mt-4 w-full py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold transition">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <div id="main-container" class="flex flex-col lg:flex-row h-full">
+
+        <div id="left-panel" class="p-4 bg-white flex flex-col justify-between items-center text-gray-800 relative h-full resizable-panel" style="flex-basis: 50%;">
+
+            <div class="flex flex-col items-center pt-4 pb-2 w-full">
+                
+                <div class="mb-1">
+                    <img 
+                        src="toyotalogo.png" 
+                        alt="Car Brand Logo" 
+                        class="w-32 h-16 object-contain"
+                        onerror="this.onerror=null;this.src='https://placehold.co/128x64/CCCCCC/333333?text=Logo';"
+                    >
+                </div>
+                
+                <div class="text-2xl font-light tracking-widest text-gray-800 mt-1">VIOS</div>
+            </div>
+
+            <div id="car-display-container" class="relative w-full max-w-md flex flex-grow justify-center items-center overflow-hidden">
+                <video id="car-video" src="" autoplay muted playsinline loop
+                        class="w-auto h-full object-cover transition-opacity duration-300">
+                    Your browser does support the video tag.
+                </video>
+                    <div id="video-fallback-message" class="absolute inset-0 bg-white/80 flex flex-col justify-center items-center text-center p-4 hidden">
+                        <p class="text-red-500 font-bold text-xl mb-2">VIDEO FILE MISSING</p>
+                        <p class="text-gray-600 text-sm">Source: <span id="missing-video-filename" class="font-mono text-yellow-600"></span></p>
+                        <p class="text-gray-700 text-xs mt-2">Make sure that file is in the same folder as this HTML file and the name is spelled exactly the same!</p>
+                    </div>
+            </div>
+            
+            <div id="clock-display" class="absolute top-4 left-4 text-center text-gray-700 text-sm font-semibold">
+                </div>
+
+
+            <button
+                id="ai-assistant-button"
+                class="absolute top-4 right-4 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-full shadow-lg transition duration-150 transform hover:scale-105 active:scale-95 text-sm hidden"
+            >
+                Ask AI ✨
+            </button>
+
+            <div class="flex items-center justify-center w-full max-w-lg pt-4 border-t border-gray-300">
+                
+                <div id="mode-controls" class="flex w-full space-x-3 text-xl text-gray-500 justify-center">
+                    <span id="MANUAL" class="mode-button">MANUAL</span>
+                    <span id="DRIVE" class="mode-button text-red-500">DRIVE</span> <span id="REVERSE" class="mode-button">REVERSE</span>
+                    <span id="PARK" class="mode-button">PARK</span>
+                </div>
+
+            </div>
+
+        </div>
+
+        <div id="splitter" class="hidden lg:block w-4 bg-gray-300 cursor-col-resize hover:bg-red-500 transition-colors duration-150 h-full flex-shrink-0"></div>
+
+        <div id="right-panel" class="bg-gray-800 relative h-full resizable-panel" style="flex-basis: 50%;">
+
+            <div id="nav-header" class="absolute top-0 left-0 right-0 p-3 bg-green-700 text-white z-10 hidden shadow-xl rounded-b-lg">
+                <div class="flex items-center space-x-3">
+                    <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v4a1 1 0 102 0V7z" clip-rule="evenodd"></path>
+                        <path d="M10 4a1 1 0 00-1 1v1a1 1 0 102 0V5a1 1 0 00-1-1z" opacity="0.5"></path>
+                    </svg>
+                    <div>
+                        <div class="text-lg font-bold" id="nav-instruction-road">Proceed onto [Road Name]</div>
+                        <div class="text-sm font-light" id="nav-instruction-sub">toward [Next Road]</div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div id="map-container" class="absolute inset-0 overflow-hidden">
+                <iframe
+                    width="100%"
+                    height="100%"
+                    frameborder="0" style="border:0"
+                    id="google-map-iframe"
+                    src="https://maps.google.com/maps?q=Manila,Philippines&z=12&output=embed"
+                    allowfullscreen
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    class="w-full h-full"
+                ></iframe>
+            </div>
+
+            <div class="absolute bottom-0 left-0 right-0 p-4 flex flex-col justify-center space-y-2">
+                
+                <div class="w-full max-w-lg flex mx-auto">
+                    <input
+                        type="text"
+                        id="start-input"
+                        placeholder="Type your starting location..."
+                        class="flex-grow p-3 rounded-full bg-white/95 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 border-none transition duration-150 shadow-md"
+                    />
+                </div>
+
+                <div class="w-full max-w-lg flex space-x-3 mx-auto">
+                    <input
+                        type="text"
+                        id="destination-input"
+                        placeholder="Type your destinations..."
+                        class="flex-grow p-3 rounded-full bg-white/95 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 border-none transition duration-150 shadow-md"
+                    />
+                    <button
+                        id="go-button"
+                        class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-full shadow-md transition duration-150 transform hover:scale-105 active:scale-95 flex items-center justify-center space-x-2"
+                    >
+                        <span id="go-button-text">Start</span>
+                        <div id="loading-spinner" class="hidden animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBAL ELEMENT REFERENCES ---
+        const carVideo = document.getElementById('car-video'); 
+        const splashScreen = document.getElementById('splash-screen');
+        const splashVideoContainer = document.getElementById('splash-video-container');
+
+        const carDisplayContainer = document.getElementById('car-display-container');
+        const modeButtons = document.querySelectorAll('.mode-button');
+        const modeControls = document.getElementById('mode-controls');
+        const startInput = document.getElementById('start-input'); 
+        const destinationInput = document.getElementById('destination-input');
+        const goButton = document.getElementById('go-button');
+        const goButtonText = document.getElementById('go-button-text');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const mapIframe = document.getElementById('google-map-iframe');
+
+        const navHeader = document.getElementById('nav-header');
+        const navInstructionRoad = document.getElementById('nav-instruction-road');
+        const navInstructionSub = document.getElementById('nav-instruction-sub');
+        const clockDisplay = document.getElementById('clock-display');
+        const mainContainer = document.getElementById('main-container');
+
+        const videoFallbackMessage = document.getElementById('video-fallback-message');
+        const missingVideoFilename = document.getElementById('missing-video-filename');
+
+        const msgBox = document.getElementById('message-box');
+        const msgTitle = document.getElementById('msg-title');
+        const msgContent = document.getElementById('msg-content');
+        const msgSources = document.getElementById('msg-sources');
+        const msgCloseButton = document.getElementById('msg-close-button');
+
+        // --- LOCATION STATE & CONFIG ---
+        let currentMode = 'DRIVE'; 
+
+        const carVideos = {
+            'MANUAL': "manual.mp4",
+            'DRIVE': "drive.mp4", 
+            'REVERSE': "reverse.mp4",
+            'PARK': "park.mp4"
+        };
+        
+        const INTRO_VIDEO_URL = "Opening.mp4"; 
+
+        // --- UI UTILITY FUNCTIONS (unchanged) ---
+        function showMessageBox(title, message, sources = []) {
+            msgTitle.textContent = title;
+            msgContent.innerHTML = message;
+            msgSources.innerHTML = ''; 
+            if (sources && sources.length > 0) {
+                const sourceTitle = document.createElement('p');
+                sourceTitle.classList.add('font-bold', 'text-gray-400', 'mt-4');
+                sourceTitle.textContent = 'Sources:';
+                msgSources.appendChild(sourceTitle);
+                sources.forEach((source, index) => {
+                    const link = document.createElement('a');
+                    link.href = source.uri;
+                    link.target = '_blank';
+                    link.classList.add('block', 'underline', 'hover:text-red-300');
+                    link.textContent = `${index + 1}. ${source.title}`;
+                    msgSources.appendChild(link);
+                });
+            }
+            msgBox.classList.add('active');
+        }
+        function hideMessageBox() { msgBox.classList.remove('active'); }
+        function setLoading(isLoading, button, textElement, spinnerElement) {
+            button.disabled = isLoading;
+            if (isLoading) {
+                textElement.classList.add('hidden');
+                spinnerElement.classList.remove('hidden');
+            } else {
+                textElement.classList.remove('hidden');
+                spinnerElement.classList.add('hidden');
+            }
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const optionsDate = { weekday: 'short', month: 'short', day: 'numeric' };
+            const optionsTime = { hour: '2-digit', minute: '2-digit', hour12: true };
+
+            const dateStr = now.toLocaleDateString('en-US', { ...optionsDate, timeZone: 'Asia/Manila' });
+            const timeStr = now.toLocaleTimeString('en-US', { ...optionsTime, timeZone: 'Asia/Manila' });
+
+            clockDisplay.innerHTML = `
+                <div class="text-xs font-normal">${dateStr}</div>
+                <div class="text-base font-bold">${timeStr} PST</div>
+            `;
+        }
+
+
+        // --- CORE APPLICATION LOGIC ---
+        
+        /**
+         * Initializes and plays the intro video on the dedicated splash screen layer.
+         */
+        function playIntroVideo() {
+            console.log("Starting 1-second pre-video delay on white screen...");
+
+            // 1. Move the video element to the splash screen container
+            splashVideoContainer.appendChild(carVideo);
+
+            // 2. Set video for intro
+            carVideo.src = INTRO_VIDEO_URL;
+            carVideo.loop = false; 
+            carVideo.muted = true; 
+            
+            // DELAY 1: Pre-video pause (1000ms)
+            setTimeout(() => {
+                
+                carVideo.style.opacity = '1';
+
+                carVideo.load();
+                carVideo.play()
+                    .then(() => {
+                        console.log("Intro video started.");
+                        carVideo.addEventListener('ended', onIntroVideoEnded, { once: true });
+                    })
+                    .catch(error => {
+                        console.error("Intro video failed to play or load:", error);
+                        // Fallback: If intro fails to play, skip to dashboard
+                        onIntroVideoEnded();
+                    });
+            }, 1000); 
+        }
+        
+        /**
+         * Transitions from the intro video to the main dashboard interface.
+         */
+        function onIntroVideoEnded() {
+            console.log("Intro video ended. Starting 1-second post-video delay...");
+            
+            // Fade out the video element itself
+            carVideo.style.opacity = '0'; 
+
+            // DELAY 2: Post-video pause (1000ms)
+            setTimeout(() => {
+                
+                // 1. Move the video element back to its dashboard location
+                carDisplayContainer.appendChild(carVideo);
+
+                // 2. Set the dashboard's initial state
+                setCarMode('DRIVE'); 
+                carVideo.loop = true;
+                carVideo.style.opacity = '1';
+
+                // 3. Fade out the splash screen layer completely
+                splashScreen.style.opacity = '0';
+
+                // 4. Fade in the main container
+                mainContainer.style.opacity = '1';
+                
+                // 5. Remove splash screen from the DOM after transition is complete
+                setTimeout(() => {
+                    splashScreen.remove();
+                }, 500); 
+
+                console.log("Dashboard interface fully loaded.");
+                
+            }, 1000); 
+        }
+
+        /**
+         * Sets the active car mode, updating the text color and visual display.
+         */
+        function setCarMode(newMode) {
+            currentMode = newMode;
+            modeButtons.forEach(button => {
+                button.classList.remove('text-red-500');
+                button.classList.add('text-gray-500'); 
+            });
+
+            const activeButton = document.getElementById(newMode);
+            if (activeButton) {
+                activeButton.classList.remove('text-gray-500');
+                activeButton.classList.add('text-red-500');
+            }
+            
+            const sourceUrl = carVideos[newMode];
+            const isVideo = sourceUrl.endsWith('.mp4'); 
+
+            let tempImg = document.getElementById('temp-car-img');
+            if (!tempImg) {
+                tempImg = document.createElement('img');
+                tempImg.id = 'temp-car-img';
+                tempImg.className = 'w-full h-full object-cover transition-opacity duration-300';
+                carVideo.parentNode.appendChild(tempImg);
+            }
+            
+            if (isVideo) {
+                tempImg.style.display = 'none';
+                carVideo.src = sourceUrl;
+                carVideo.style.display = 'block';
+                carVideo.load();
+                carVideo.play().catch(error => { console.warn("Dashboard video autoplay failed", error); });
+            } else {
+                carVideo.style.display = 'none';
+                tempImg.src = sourceUrl;
+                tempImg.style.display = 'block';
+            }
+            
+            videoFallbackMessage.classList.add('hidden');
+        }
+
+        // --- NAVIGATION & EVENT LISTENERS (unchanged) ---
+        async function handleNavigationSearch() {
+            const startPoint = startInput.value.trim();
+            const destination = destinationInput.value.trim();
+
+            if (!startPoint || !destination) {
+                showMessageBox("Navigation Alert", "Please enter both a starting location and a destination.");
+                return;
+            }
+            
+            if (currentMode !== 'DRIVE') {
+                setCarMode('DRIVE');
+            }
+
+            setLoading(false, goButton, goButtonText, loadingSpinner); 
+
+            try {
+                navInstructionRoad.textContent = `Start route to ${destination}`;
+                navInstructionSub.textContent = `from ${startPoint}`;
+                navHeader.classList.remove('hidden');
+                
+                showMessageBox(
+                    `Navigation Status`, 
+                    `Starting route from **${startPoint}** to **${destination}**.`,
+                    []
+                );
+
+                const encodedDestination = encodeURIComponent(destination);
+                const encodedStartPoint = encodeURIComponent(startPoint);
+
+                const mapSrc = `https://maps.google.com/maps?q=${encodedDestination}&saddr=${encodedStartPoint}&output=embed&maptype=satellite`;
+                
+                mapIframe.src = mapSrc;
+
+            } catch (error) {
+                console.error("Navigation Error:", error);
+                showMessageBox("System Error: Navigation Failed", "Could not calculate the route. Please check the addresses.");
+            }
+        }
+
+        // Event Listeners Setup
+        modeControls.addEventListener('click', (event) => {
+            const modeId = event.target.id;
+            if (['MANUAL', 'DRIVE', 'REVERSE', 'PARK'].includes(modeId)) {
+                setCarMode(modeId);
+            }
+        });
+
+        goButton.addEventListener('click', handleNavigationSearch);
+        destinationInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') { handleNavigationSearch(); }
+        });
+        startInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') { handleNavigationSearch(); }
+        });
+        msgCloseButton.addEventListener('click', hideMessageBox);
+
+        // Initial State Setup
+        document.addEventListener('DOMContentLoaded', () => {
+            playIntroVideo();
+            updateClock();
+            setInterval(updateClock, 1000);
+        });
+
+        /* --- SPLITTER JAVASCRIPT LOGIC (unchanged) --- */
+        const leftPanel = document.getElementById('left-panel');
+        const rightPanel = document.getElementById('right-panel');
+        const splitter = document.getElementById('splitter');
+        const container = document.getElementById('main-container'); 
+
+        let isDragging = false;
+
+        splitter.addEventListener('mousedown', (e) => {
+            if (window.innerWidth >= 1024) { 
+                isDragging = true;
+                document.body.classList.add('no-select');
+                splitter.classList.add('bg-red-700'); 
+                e.preventDefault(); 
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const containerWidth = container.offsetWidth - splitter.offsetWidth;
+            const containerStart = container.getBoundingClientRect().left;
+            const newLeftPixelWidth = e.clientX - containerStart;
+            const newLeftWidthPercent = (newLeftPixelWidth / containerWidth) * 100;
+            const clampedWidth = Math.min(70, Math.max(30, newLeftWidthPercent));
+            leftPanel.style.flexBasis = `${clampedWidth}%`;
+            rightPanel.style.flexBasis = `${100 - clampedWidth}%`;
+            e.preventDefault(); 
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                document.body.classList.remove('no-select');
+                splitter.classList.remove('bg-red-700');
+            }
+        });
+    </script>
+</body>
+</html>
