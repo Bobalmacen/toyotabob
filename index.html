@@ -32,6 +32,9 @@
         body.dark-mode .text-gray-800 {
             color: #f0f0f0; /* Overrides default text color in left panel */
         }
+        body.dark-mode #weather-display {
+            color: #f0f0f0; /* Ensures the wrapper text color is light in dark mode */
+        }
         /* Mode Controls in Dark Mode */
         body.dark-mode .mode-button {
             color: #444 !important; /* Inactive text */
@@ -266,7 +269,11 @@
             </div>
             
             <div class="absolute top-4 left-4 flex flex-col items-start space-y-2">
-                <div id="clock-display" class="text-left text-gray-700 text-sm font-semibold">
+                <div class="text-left text-gray-700 text-sm font-semibold flex items-center space-x-3">
+                    <div id="clock-display">
+                        </div>
+                    <div id="weather-display" class="flex items-center text-gray-700 dark:text-gray-300 text-sm font-bold">
+                        </div>
                 </div>
                 <button 
                     id="theme-toggle-button" 
@@ -362,7 +369,7 @@
         const carVideo = document.getElementById('car-video'); 
         const splashScreen = document.getElementById('splash-screen');
         const splashVideoContainer = document.getElementById('splash-video-container');
-        const splashImage = document.getElementById('splash-image'); 
+        const splashImage = document.getElementById('splash-image'); // NEW
         const carDisplayContainer = document.getElementById('car-display-container');
         const modeButtons = document.querySelectorAll('.mode-button');
         const modeControls = document.getElementById('mode-controls');
@@ -372,6 +379,7 @@
         const goButtonText = document.getElementById('go-button-text');
         const loadingSpinner = document.getElementById('loading-spinner');
         const mapIframe = document.getElementById('google-map-iframe');
+        const weatherDisplay = document.getElementById('weather-display'); // NEW
 
         const navHeader = document.getElementById('nav-header');
         const navInstructionRoad = document.getElementById('nav-instruction-road');
@@ -409,6 +417,28 @@
             'REVERSE': "reverse.png",
             'PARK': "park.png"
         };
+        
+        // --- WEATHER STATE & LOGIC ---
+        let weatherState = 0;
+        const localWeather = [
+            { icon: '☀️', temp: '31°C', condition: 'Sunny' },
+            { icon: '🌧️', temp: '25°C', condition: 'Rainy' },
+            { icon: '☁️', temp: '28°C', condition: 'Partly Cloudy' },
+            { icon: '⚡', temp: '26°C', condition: 'Storms' }
+        ];
+
+        function updateWeather() {
+            // Cycle through weather conditions every time this runs (every 60 seconds via setInterval)
+            weatherState = (weatherState + 1) % localWeather.length; 
+            const weather = localWeather[weatherState];
+            
+            // FIX: Explicitly add light/dark classes to the inserted HTML content
+            weatherDisplay.innerHTML = `
+                <span class="text-xl text-gray-900 dark:text-gray-300">${weather.icon}</span>
+                <span class="ml-1 text-gray-900 dark:text-gray-300">${weather.temp}</span>
+                <span class="text-xs font-normal ml-1 hidden sm:inline-block text-gray-900 dark:text-gray-300">${weather.condition}</span>
+            `;
+        }
         
         // --- UI UTILITY FUNCTIONS ---
         function showMessageBox(title, message, sources = []) {
@@ -782,7 +812,11 @@
             loadTheme(); 
             playIntroVideo();
             updateClock();
+            updateWeather(); // Initial weather update
+            
+            // Set intervals (every 1 second for clock, every 60 seconds for weather cycle)
             setInterval(updateClock, 1000);
+            setInterval(updateWeather, 60000); 
         }
 
         // --- Event Listeners Setup ---
