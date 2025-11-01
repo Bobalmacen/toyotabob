@@ -6,10 +6,10 @@
     <title>Toyota Bobby Almacen</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom styles for a modern, dark dashboard feel */
+        /* Custom styles for a modern, dashboard feel */
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #FFFFFF; /* <<<< CHANGED TO WHITE */
+            background-color: #FFFFFF;
             overflow: hidden;
         }
 
@@ -17,7 +17,7 @@
         #splash-screen {
             position: fixed;
             inset: 0;
-            background-color: #FFFFFF; /* <<<< CHANGED TO WHITE */
+            background-color: #FFFFFF;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -75,12 +75,7 @@
         #car-display-container {
             background-color: #FFFFFF;
         }
-        .resizable-panel {
-            flex-grow: 0; 
-            flex-shrink: 0; 
-            min-width: 30%; 
-            max-width: 70%; 
-        }
+        /* Removed .resizable-panel custom CSS that conflicted with mobile height for better responsiveness */
         .no-select {
             user-select: none;
             cursor: col-resize;
@@ -107,7 +102,10 @@
 
     <div id="main-container" class="flex flex-col lg:flex-row h-full">
 
-        <div id="left-panel" class="p-4 bg-white flex flex-col justify-between items-center text-gray-800 relative h-full resizable-panel" style="flex-basis: 50%;">
+        <!-- LEFT PANEL (DASHBOARD) -->
+        <div id="left-panel" 
+             class="p-4 bg-white flex flex-col justify-between items-center text-gray-800 relative h-1/2 lg:h-full" 
+             style="flex-basis: 50%;">
 
             <div class="flex flex-col items-center pt-4 pb-2 w-full">
                 
@@ -150,7 +148,8 @@
                 
                 <div id="mode-controls" class="flex w-full space-x-3 text-xl text-gray-500 justify-center">
                     <span id="MANUAL" class="mode-button">MANUAL</span>
-                    <span id="DRIVE" class="mode-button text-red-500">DRIVE</span> <span id="REVERSE" class="mode-button">REVERSE</span>
+                    <span id="DRIVE" class="mode-button text-red-500">DRIVE</span> 
+                    <span id="REVERSE" class="mode-button">REVERSE</span>
                     <span id="PARK" class="mode-button">PARK</span>
                 </div>
 
@@ -158,9 +157,13 @@
 
         </div>
 
+        <!-- SPLITTER (Desktop Only) -->
         <div id="splitter" class="hidden lg:block w-4 bg-gray-300 cursor-col-resize hover:bg-red-500 transition-colors duration-150 h-full flex-shrink-0"></div>
 
-        <div id="right-panel" class="bg-gray-800 relative h-full resizable-panel" style="flex-basis: 50%;">
+        <!-- RIGHT PANEL (MAP / INFOTAINMENT) -->
+        <div id="right-panel" 
+             class="bg-gray-800 relative h-1/2 lg:h-full overflow-hidden" 
+             style="flex-basis: 50%;">
 
             <div id="nav-header" class="absolute top-0 left-0 right-0 p-3 bg-green-700 text-white z-10 hidden shadow-xl rounded-b-lg">
                 <div class="flex items-center space-x-3">
@@ -454,6 +457,7 @@
                 const encodedDestination = encodeURIComponent(destination);
                 const encodedStartPoint = encodeURIComponent(startPoint);
 
+                // Use the Google Maps Directions URL format
                 const mapSrc = `https://maps.google.com/maps?q=${encodedDestination}&saddr=${encodedStartPoint}&output=embed&maptype=satellite`;
                 
                 mapIframe.src = mapSrc;
@@ -488,7 +492,7 @@
             setInterval(updateClock, 1000);
         });
 
-        /* --- SPLITTER JAVASCRIPT LOGIC (unchanged) --- */
+        /* --- SPLITTER JAVASCRIPT LOGIC (Updated to remove dependency on removed CSS class) --- */
         const leftPanel = document.getElementById('left-panel');
         const rightPanel = document.getElementById('right-panel');
         const splitter = document.getElementById('splitter');
@@ -507,13 +511,21 @@
 
         document.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
+            // Only execute drag logic if we are on a desktop-sized screen (to match lg:flex-row)
+            if (window.innerWidth < 1024) return;
+
             const containerWidth = container.offsetWidth - splitter.offsetWidth;
             const containerStart = container.getBoundingClientRect().left;
             const newLeftPixelWidth = e.clientX - containerStart;
             const newLeftWidthPercent = (newLeftPixelWidth / containerWidth) * 100;
+            
+            // Enforce min/max width limits (30% to 70%) previously in CSS
             const clampedWidth = Math.min(70, Math.max(30, newLeftWidthPercent));
+            
+            // Set flex-basis for horizontal split
             leftPanel.style.flexBasis = `${clampedWidth}%`;
             rightPanel.style.flexBasis = `${100 - clampedWidth}%`;
+            
             e.preventDefault(); 
         });
 
@@ -524,6 +536,13 @@
                 splitter.classList.remove('bg-red-700');
             }
         });
+        /* --- Video Error Handling (Added) --- */
+        carVideo.addEventListener('error', function(event) {
+            console.error("Video failed to load/play:", event.target.src);
+            const fileName = event.target.src.split('/').pop();
+            missingVideoFilename.textContent = fileName;
+            videoFallbackMessage.classList.remove('hidden');
+        }, true); // Use capture phase to catch errors early
     </script>
 </body>
 </html>
