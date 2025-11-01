@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Toyota Bobby Almacen</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for a modern, dashboard feel */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FFFFFF;
+            overflow: hidden;
+            transition: background-color 0.3s;
+        }
+
+        /* --- DARK MODE BASE STYLES --- */
+        body.dark-mode {
+            background-color: #0d0d0d;
+        }
+        body.dark-mode #left-panel {
+            background-color: #1a1a1a;
+            color: #f0f0f0;
+            border-right: 1px solid #333;
+        }
+        body.dark-mode #right-panel {
+            background-color: #0d0d0d;
+        }
+        body.dark-mode #clock-display {
+            color: #b0b0b0;
+        }
+        body.dark-mode .text-gray-800 {
+            color: #f0f0f0; /* Overrides default text color in left panel */
+        }
+        body.dark-mode #weather-display {
+            color: #f0f0f0; /* Ensures the wrapper text color is light in dark mode */
+        }
+        /* Mode Controls in Dark Mode */
+        body.dark-mode .mode-button {
+            color: #444 !important; /* Inactive text */
+        }
+        body.dark-mode .mode-button.text-red-500 {
+            color: #ff8a80 !important; /* Active text */
+        }
+        /* Inputs in Dark Mode */
+        body.dark-mode input {
+            background-color: #333333 !important;
+            color: #ffffff !important;
+            border-color: #555555 !important;
+        }
+        body.dark-mode input::placeholder {
+            color: #a0a0a0;
+        }
+        /* Navigation Header in Dark Mode */
+        body.dark-mode #nav-header {
+            background-color: #0f4f2f; /* Darker green */
+        }
+        body.dark-mode #theme-toggle-button {
+            background-color: #333333;
+            color: #ffffff;
+        }
+
+
+        /* --- SPLASH SCREEN STYLES (Existing) --- */
+        #splash-screen {
+            position: fixed;
+            inset: 0;
+            background-color: #FFFFFF;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.5s ease-out;
+            opacity: 1;
+        }
+        body.dark-mode #splash-screen {
+            background-color: #1a1a1a; /* Dark splash background */
+        }
+        
+        /* Hide main dashboard until loaded */
+        #main-container {
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        /* --- DASHBOARD STYLES (Existing) --- */
+        .mode-button {
+            transition: color 0.3s, transform 0.1s;
+            cursor: pointer;
+            font-weight: 600;
+            user-select: none;
+            flex-grow: 1;
+            text-align: center;
+        }
+        .mode-button:active {
+            transform: scale(0.98);
+        }
+        
+        #message-box {
+            z-index: 100;
+            transition: opacity 0.3s, transform 0.3s;
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.95);
+        }
+        #message-box.active {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1);
+        }
+        #car-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; 
+            opacity: 1; 
+            transition: opacity 0.5s;
+        }
+        /* --- CORE 3D STYLES --- */
+        #car-display-container {
+            /* This is crucial for establishing the 3D viewing perspective */
+            perspective: 1200px; 
+            background-color: #FFFFFF;
+            transition: background-color 0.3s;
+        }
+        body.dark-mode #car-display-container {
+            background-color: #1a1a1a;
+        }
+        .no-select {
+            user-select: none;
+            cursor: col-resize;
+        }
+
+        /* Set the style for the image element itself (tempImg) */
+        #temp-car-img {
+            transform-style: preserve-3d; /* Allows child elements (the image itself) to exist in 3D space */
+            backface-visibility: hidden; /* Prevents visual artifacts during rotation */
+            /* CORE FIX: Remove all potential borders/outlines/shadows for clean transition */
+            border: none !important; 
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        /* --- 3D PERSPECTIVE ANIMATION STYLES --- */
+        .fade-out {
+            /* Image disappearing: Quick fade out and rotate off-screen */
+            opacity: 0;
+            /* Move it back (negative Z) and rotate slightly off-center (Y-axis) */
+            transform: translateZ(-200px) rotateY(15deg); 
+            transition: opacity 0.5s ease-in, transform 0.5s ease-in; 
+        }
+
+        .fade-in-scale {
+            /* Image appearing: Smooth fade in from rotation and perspective */
+            opacity: 1;
+            transform: translateZ(0) rotateY(0deg); /* Final, natural position */
+            /* Slower duration (1.0s) for the smooth entrance */
+            transition: opacity 1.0s ease-out, transform 1.0s ease-out;
+        }
+        /* Set Map Iframe above other elements to ensure controls are clickable */
+        #map-container {
+            z-index: 5;
+        }
+
+        /* Set controls area to be higher than map controls, but map controls are usually at the corner */
+        .absolute.bottom-0 {
+            z-index: 10; 
+            /* Allows clicks to pass through the padding/empty areas to the map below */
+            pointer-events: none; 
+        }
+        
+        /* Re-enable pointer events ONLY for the inputs and button */
+        #start-input, #destination-input, #go-button {
+            pointer-events: auto;
+        }
+        /* ---------------------------------------------------- */
+        /* SPLITTER REDESIGN (iOS Style) */
+        /* ---------------------------------------------------- */
+        #splitter {
+            width: 8px; /* Reduced width (w-2 equivalent) */
+            background-color: #e5e7eb; /* Light gray line */
+            position: relative;
+        }
+
+        body.dark-mode #splitter {
+            background-color: #333333; /* Darker line in dark mode */
+        }
+        
+        /* Glass Oblong Handle (::after) */
+        #splitter::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 6px; /* Width of the handle */
+            height: 48px; /* Height of the oblong */
+            background-color: rgba(255, 255, 255, 0.4); /* Frosted glass look */
+            border-radius: 9999px;
+            /* Thin white border for separation effect */
+            border: 1px solid rgba(255, 255, 255, 0.6); 
+            /* Subtle shadow for depth */
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); 
+            transition: background-color 0.2s, box-shadow 0.2s;
+        }
+        
+        /* Hover state for the entire splitter */
+        #splitter:hover {
+            background-color: #dc2626; /* Darker red hover */
+        }
+
+        /* Drag state for the handle */
+        #splitter.bg-red-700::after {
+            background-color: rgba(255, 0, 0, 0.7); /* Red handle when dragging */
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+            border-color: rgba(255, 255, 255, 0.8);
+        }
+        /* ---------------------------------------------------- */
+    </style>
+</head>
+<body class="h-screen">
+    
+    <div id="splash-screen">
+        <div id="splash-video-container" class="w-full h-full max-w-xl max-h-xl overflow-hidden flex justify-center items-center">
+            <img id="splash-image" src="toyotalogo.png" alt="Toyota Logo" class="w-32 h-32 object-contain" style="opacity: 0; transition: opacity 0.5s;">
+        </div>
+    </div>
+    
+    <div id="message-box" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-70 z-[1001]">
+        <div class="bg-gray-900 p-6 rounded-xl shadow-2xl max-w-lg w-full text-white border border-red-500">
+            <h3 id="msg-title" class="text-xl font-bold mb-3 text-red-400">Title</h3>
+            <p id="msg-content" class="mb-4 text-gray-200 text-sm leading-relaxed"></p>
+            <div id="msg-sources" class="text-xs text-gray-500 mt-2 space-y-1"></div>
+            <button id="msg-close-button" class="mt-4 w-full py-2 bg-red-600 hover:bg-red-700 rounded-lg font-semibold transition">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <div id="main-container" class="flex flex-col lg:flex-row h-full">
+
+        <div id="left-panel" 
+             class="p-4 bg-white flex flex-col justify-between items-center text-gray-800 relative h-1/2 lg:h-full transition-colors duration-300" 
+             style="flex-basis: 50%;">
+
+            <div class="flex flex-col items-center pt-4 pb-2 w-full">
+                
+                <div class="mb-1">
+                    <img 
+                        src="toyotalogo.png" 
+                        alt="Car Brand Logo" 
+                        class="w-32 h-16 object-contain"
+                        onerror="this.onerror=null;this.src='https://placehold.co/128x64/CCCCCC/333333?text=Logo';"
+                    >
+                </div>
+                
+                <div class="text-2xl font-light tracking-widest text-gray-800 mt-1">VIOS</div>
+            </div>
+
+            <div id="car-display-container" class="relative w-full max-w-md flex flex-grow justify-center items-center overflow-hidden">
+                <video id="car-video" src="" autoplay muted playsinline loop
+                        class="w-auto h-full object-cover transition-opacity duration-300">
+                    Your browser does support the video tag.
+                </video>
+                    <div id="video-fallback-message" class="absolute inset-0 bg-white/80 flex flex-col justify-center items-center text-center p-4 hidden">
+                        <p class="text-red-500 font-bold text-xl mb-2">VIDEO FILE MISSING</p>
+                        <p class="text-gray-600 text-sm">Source: <span id="missing-video-filename" class="font-mono text-yellow-600"></span></p>
+                        <p class="text-gray-700 text-xs mt-2">Make sure that file is in the same folder as this HTML file and the name is spelled exactly the same!</p>
+                    </div>
+            </div>
+            
+            <div class="absolute top-4 left-4 flex flex-col items-start space-y-2">
+                <div class="text-left text-gray-700 text-sm font-semibold flex items-center space-x-3">
+                    <div id="clock-display">
+                        </div>
+                    <div id="weather-display" class="flex items-center text-gray-700 text-sm font-bold">
+                        </div>
+                </div>
+                <button 
+                    id="theme-toggle-button" 
+                    class="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-full shadow-lg transition duration-150 transform hover:scale-105 active:scale-95 text-xs font-semibold flex items-center space-x-1"
+                >
+                    <span id="theme-icon">🌙</span>
+                    <span id="theme-text">Night Mode</span>
+                </button>
+            </div>
+
+            <div class="flex items-center justify-center w-full max-w-lg pt-4 border-t border-gray-300">
+                
+                <div id="mode-controls" class="flex w-full space-x-3 text-xl text-gray-500 justify-center">
+                    <span id="MANUAL" class="mode-button">MANUAL</span>
+                    <span id="DRIVE" class="mode-button text-red-500">DRIVE</span> 
+                    <span id="REVERSE" class="mode-button">REVERSE</span>
+                    <span id="PARK" class="mode-button">PARK</span>
+                </div>
+
+            </div>
+
+        </div>
+
+        <div id="splitter" 
+             class="hidden lg:block w-2 bg-gray-300 cursor-col-resize hover:bg-red-500 transition-colors duration-150 h-full flex-shrink-0 touch-action-none">
+        </div>
+
+        <div id="right-panel" 
+             class="bg-gray-800 relative h-1/2 lg:h-full overflow-hidden transition-colors duration-300" 
+             style="flex-basis: 50%;">
+
+            <div id="nav-header" class="absolute top-0 left-0 right-0 p-3 bg-green-700 text-white z-10 hidden shadow-xl rounded-b-lg transition-colors duration-300">
+                <div class="flex items-center space-x-3">
+                    <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v4a1 1 0 102 0V7z" clip-rule="evenodd"></path>
+                        <path d="M10 4a1 1 0 00-1 1v1a1 1 0 102 0V5a1 1 0 00-1-1z" opacity="0.5"></path>
+                    </svg>
+                    <div>
+                        <div class="text-lg font-bold" id="nav-instruction-road">Proceed onto [Road Name]</div>
+                        <div class="text-sm font-light" id="nav-instruction-sub">toward [Next Road]</div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div id="map-container" class="absolute inset-0 overflow-hidden">
+                <iframe
+                    width="100%"
+                    height="100%"
+                    frameborder="0" style="border:0"
+                    id="google-map-iframe"
+                    /* Initial map source placeholder */
+                    src="https://maps.google.com/maps?q=Manila,Philippines&z=12&output=embed"
+                    allowfullscreen
+                    loading="lazy"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    class="w-full h-full"
+                ></iframe>
+            </div>
+
+            <div class="absolute bottom-0 left-0 right-0 p-2 flex flex-col justify-center space-y-2">
+                
+                <div class="w-full max-w-lg flex mx-auto">
+                    <input
+                        type="text"
+                        id="start-input"
+                        placeholder="Type your starting location..."
+                        class="flex-grow p-3 rounded-full bg-white/95 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 border-none transition duration-150 shadow-md"
+                    />
+                </div>
+
+                <div class="w-full max-w-lg flex space-x-3 mx-auto">
+                    <input
+                        type="text"
+                        id="destination-input"
+                        placeholder="Type your destinations..."
+                        class="flex-grow p-3 rounded-full bg-white/95 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 border-none transition duration-150 shadow-md"
+                    />
+                    <button
+                        id="go-button"
+                        class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-full shadow-md transition duration-150 transform hover:scale-105 active:scale-95 flex items-center justify-center space-x-2"
+                    >
+                        <span id="go-button-text">Start</span>
+                        <div id="loading-spinner" class="hidden animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBAL ELEMENT REFERENCES ---
+        const carVideo = document.getElementById('car-video'); 
+        const splashScreen = document.getElementById('splash-screen');
+        const splashVideoContainer = document.getElementById('splash-video-container');
+        const splashImage = document.getElementById('splash-image'); // NEW
+        const carDisplayContainer = document.getElementById('car-display-container');
+        const modeButtons = document.querySelectorAll('.mode-button');
+        const modeControls = document.getElementById('mode-controls');
+        const startInput = document.getElementById('start-input'); 
+        const destinationInput = document.getElementById('destination-input');
+        const goButton = document.getElementById('go-button');
+        const goButtonText = document.getElementById('go-button-text');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const mapIframe = document.getElementById('google-map-iframe');
+        const weatherDisplay = document.getElementById('weather-display'); // NEW
+
+        const navHeader = document.getElementById('nav-header');
+        const navInstructionRoad = document.getElementById('nav-instruction-road');
+        const navInstructionSub = document.getElementById('nav-instruction-sub');
+        const clockDisplay = document.getElementById('clock-display');
+        const mainContainer = document.getElementById('main-container');
+        const body = document.body; // Reference to the body for theme switching
+
+        const videoFallbackMessage = document.getElementById('video-fallback-message');
+        const missingVideoFilename = document.getElementById('missing-video-filename');
+
+        const msgBox = document.getElementById('message-box');
+        const msgTitle = document.getElementById('msg-title');
+        const msgContent = document.getElementById('msg-content');
+        const msgSources = document.getElementById('msg-sources');
+        const msgCloseButton = document.getElementById('msg-close-button');
+
+        const themeToggleButton = document.getElementById('theme-toggle-button');
+        const themeIcon = document.getElementById('theme-icon');
+        const themeText = document.getElementById('theme-text');
+
+        // --- LOCATION STATE & CONFIG ---
+        let currentMode = 'DRIVE'; 
+        let isNavigating = false;
+        let navStepInterval = null; 
+        
+        // Fixed, known city for the map query to ensure the route draws.
+        const SIMULATED_GPS_LOCATION = "Metro Manila, Philippines"; 
+        const LIVE_LOCATION_PLACEHOLDER = "Current Location (GPS Active)"; 
+
+
+        const carVideos = {
+            'MANUAL': "manual.png",
+            'DRIVE': "drive.png", 
+            'REVERSE': "reverse.png",
+            'PARK': "park.png"
+        };
+        
+        // --- WEATHER STATE & LOGIC ---
+        let weatherDataIndex = 0; // Renamed for clarity
+        const localWeather = [
+            { icon: '☀️', temp: '31°C', condition: 'Sunny' },
+            { icon: '🌧️', temp: '25°C', condition: 'Rainy' },
+            { icon: '☁️', temp: '28°C', condition: 'Partly Cloudy' },
+            { icon: '⚡', temp: '26°C', condition: 'Storms' }
+        ];
+
+        function updateWeatherDisplay() {
+            const weather = localWeather[weatherDataIndex];
+            
+            // FIX: Determine the base text color based on the current body class
+            // This ensures the color flips immediately on theme toggle.
+            const textColorClass = document.body.classList.contains('dark-mode') ? 'text-gray-300' : 'text-gray-900';
+
+            // Apply the chosen color class directly to the inserted content
+            weatherDisplay.innerHTML = `
+                <span class="text-xl ${textColorClass}">${weather.icon}</span>
+                <span class="ml-1 ${textColorClass}">${weather.temp}</span>
+                <span class="text-xs font-normal ml-1 hidden sm:inline-block ${textColorClass}">${weather.condition}</span>
+            `;
+        }
+
+        function cycleWeather() {
+            // This function is called by the setInterval and advances the data state
+            weatherDataIndex = (weatherDataIndex + 1) % localWeather.length; 
+            updateWeatherDisplay();
+        }
+        
+        // --- UI UTILITY FUNCTIONS ---
+        function showMessageBox(title, message, sources = []) {
+            msgTitle.textContent = title;
+            msgContent.innerHTML = message;
+            msgSources.innerHTML = ''; 
+            if (sources && sources.length > 0) {
+                const sourceTitle = document.createElement('p');
+                sourceTitle.classList.add('font-bold', 'text-gray-400', 'mt-4');
+                sourceTitle.textContent = 'Sources:';
+                msgSources.appendChild(sourceTitle);
+                sources.forEach((source, index) => {
+                    const link = document.createElement('a');
+                    link.href = source.uri;
+                    link.target = '_blank';
+                    link.classList.add('block', 'underline', 'hover:text-red-300');
+                    link.textContent = `${index + 1}. ${source.title}`;
+                    msgSources.appendChild(link);
+                });
+            }
+            msgBox.classList.add('active');
+        }
+        function hideMessageBox() { msgBox.classList.remove('active'); }
+        function setLoading(isLoading, button, textElement, spinnerElement) {
+            button.disabled = isLoading;
+            if (isLoading) {
+                textElement.classList.add('hidden');
+                spinnerElement.classList.remove('hidden');
+            } else {
+                textElement.classList.remove('hidden');
+                spinnerElement.classList.add('hidden');
+            }
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const optionsDate = { weekday: 'short', month: 'short', day: 'numeric' };
+            const optionsTime = { hour: '2-digit', minute: '2-digit', hour12: true };
+
+            // Using Asia/Manila for Philippine Standard Time (PST)
+            const dateStr = now.toLocaleDateString('en-US', { ...optionsDate, timeZone: 'Asia/Manila' });
+            const timeStr = now.toLocaleTimeString('en-US', { ...optionsTime, timeZone: 'Asia/Manila' });
+
+            clockDisplay.innerHTML = `
+                <div class="text-xs font-normal">${dateStr}</div>
+                <div class="text-base font-bold">${timeStr} PST</div>
+            `;
+        }
+
+        // --- THEME LOGIC ---
+        function toggleTheme() {
+            const isDarkMode = body.classList.toggle('dark-mode');
+            localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+            updateThemeButton(isDarkMode);
+            // FIX: Manually update the weather display immediately after theme toggle
+            updateWeatherDisplay(); 
+        }
+
+        function updateThemeButton(isDarkMode) {
+            if (isDarkMode) {
+                themeIcon.textContent = '☀️';
+                themeText.textContent = 'Day Mode';
+                themeToggleButton.classList.remove('bg-gray-200', 'hover:bg-gray-300', 'text-gray-800');
+                themeToggleButton.classList.add('bg-gray-700', 'hover:bg-gray-800', 'text-white');
+            } else {
+                themeIcon.textContent = '🌙';
+                themeText.textContent = 'Night Mode';
+                themeToggleButton.classList.add('bg-gray-200', 'hover:bg-gray-300', 'text-gray-800');
+                themeToggleButton.classList.remove('bg-gray-700', 'hover:bg-gray-800', 'text-white');
+            }
+        }
+
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            // Default to light mode if nothing is saved
+            const isDarkMode = savedTheme === 'dark';
+
+            if (isDarkMode) {
+                body.classList.add('dark-mode');
+            } else {
+                body.classList.remove('dark-mode');
+            }
+            updateThemeButton(isDarkMode);
+        }
+
+
+        // --- CORE APPLICATION LOGIC ---
+        
+        /**
+         * Initializes and displays the static image on the splash screen layer.
+         */
+        function playIntroVideo() {
+            console.log("Starting splash screen static display...");
+
+            // 1. Ensure the image is visible on the splash screen container
+            splashImage.style.opacity = '1';
+            
+            // DELAY 1: Display static image for 2 seconds
+            setTimeout(() => {
+                onIntroVideoEnded();
+            }, 2000); 
+        }
+        
+        /**
+         * Transitions from the static image to the main dashboard interface.
+         */
+        function onIntroVideoEnded() {
+            console.log("Static splash image timer ended. Starting transition...");
+            
+            // Fade out the splash image
+            splashImage.style.opacity = '0'; 
+
+            // DELAY 2: Transition time (500ms)
+            setTimeout(() => {
+                
+                // 1. Set the dashboard's initial state
+                setCarMode('DRIVE'); 
+                
+                // 2. Fade out the splash screen layer completely
+                splashScreen.style.opacity = '0';
+
+                // 3. Fade in the main container
+                mainContainer.style.opacity = '1';
+                
+                // 4. Remove splash screen from the DOM after transition is complete
+                setTimeout(() => {
+                    splashScreen.remove();
+                }, 500); 
+
+                console.log("Dashboard interface fully loaded.");
+                
+            }, 500); 
+        }
+
+        /**
+         * Sets the active car mode, updating the text color and visual display.
+         * MODIFIED for 3D Perspective animation (rotateY + translateZ).
+         */
+        function setCarMode(newMode) {
+            currentMode = newMode;
+            modeButtons.forEach(button => {
+                button.classList.remove('text-red-500');
+                button.classList.add('text-gray-500');
+            });
+
+            const activeButton = document.getElementById(newMode);
+            if (activeButton) {
+                activeButton.classList.remove('text-gray-500');
+                activeButton.classList.add('text-red-500');
+            }
+
+            const sourceUrl = carVideos[newMode];
+            const isVideo = sourceUrl.endsWith('.mp4');
+
+            let tempImg = document.getElementById('temp-car-img');
+            if (!tempImg) {
+                tempImg = document.createElement('img');
+                tempImg.id = 'temp-car-img';
+                // Add classes for initial state
+                tempImg.className = 'w-full h-full object-cover transition-opacity duration-300 fade-out';
+                carVideo.parentNode.appendChild(tempImg);
+            }
+            
+            // Hide the video fallback message whenever mode is switched
+            videoFallbackMessage.classList.add('hidden');
+            
+            if (isVideo) {
+                // --- Video Mode ---
+                tempImg.classList.remove('fade-in-scale');
+                tempImg.classList.add('fade-out'); // Ensure image is hidden
+                tempImg.style.display = 'none';
+                carVideo.style.display = 'block';
+                carVideo.src = sourceUrl;
+                carVideo.load();
+                carVideo.play().catch(error => { console.warn("Dashboard video autoplay failed", error); });
+            } else {
+                // --- Image Mode (PNGs) ---
+                carVideo.pause(); // Pause video before hiding it
+                carVideo.style.display = 'none';
+                
+                // 1. Hide the image immediately to reset the animation
+                tempImg.classList.remove('fade-in-scale');
+                tempImg.classList.add('fade-out');
+                
+                // 2. Set the new source and make it visible
+                tempImg.src = sourceUrl;
+                tempImg.style.display = 'block';
+                
+                // 3. Force a reflow (browser repaint) to ensure the `fade-out` state is applied
+                void tempImg.offsetWidth; 
+                
+                // 4. Apply the fade-in class on the next tick
+                setTimeout(() => {
+                    tempImg.classList.remove('fade-out');
+                    tempImg.classList.add('fade-in-scale');
+                }, 10); // A small delay ensures the transition triggers
+            }
+        }
+
+        /**
+         * Simulates active turn-by-turn navigation by updating the header.
+         */
+        function simulateNavigation(destination) {
+            const instructions = [
+                ["Proceed onto Main Road", "in 500 meters"],
+                ["Turn right onto [Street Name]", "then merge onto highway"],
+                ["Continue straight for 3 kilometers", "past the gas station"],
+                ["Take the next exit toward Downtown", "following signs"],
+                [`Arriving at ${destination}`, "Destination is on your left"]
+            ];
+            let step = 0;
+
+            // Initial instruction display
+            navInstructionRoad.textContent = instructions[0][0];
+            navInstructionSub.textContent = instructions[0][1];
+
+            // Set interval to change instructions every 4 seconds
+            navStepInterval = setInterval(() => {
+                step++;
+                if (step >= instructions.length) {
+                    // Final arrival instruction display
+                    navInstructionRoad.textContent = instructions[instructions.length - 1][0];
+                    navInstructionSub.textContent = instructions[instructions.length - 1][1];
+
+                    clearInterval(navStepInterval);
+                    setTimeout(stopNavigation, 5000); // Display arrival instruction for 5 seconds
+                    return;
+                }
+                
+                navInstructionRoad.textContent = instructions[step][0];
+                navInstructionSub.textContent = instructions[step][1];
+            }, 4000);
+        }
+
+        /**
+         * Starts active navigation, updating UI for driving mode.
+         */
+        function startNavigation() {
+            // Remove the 'Navigate' listener before changing state
+            goButton.removeEventListener('click', startNavigation);
+
+            isNavigating = true;
+            goButtonText.textContent = 'End';
+            
+            // Change button color to signal an 'active' state
+            goButton.classList.remove('bg-red-600', 'hover:bg-red-700');
+            goButton.classList.add('bg-blue-600', 'hover:bg-blue-700'); 
+            
+            // Re-map click to stop navigation
+            goButton.addEventListener('click', handleGoButtonClick);
+
+            // Simulate turn-by-turn based on the destination input
+            simulateNavigation(destinationInput.value.trim());
+
+            if (currentMode !== 'DRIVE') {
+                setCarMode('DRIVE');
+            }
+        }
+
+        /**
+         * Stops active navigation, resetting UI.
+         */
+        function stopNavigation() {
+            // Clear interval if it's still running
+            if (navStepInterval) clearInterval(navStepInterval);
+            
+            // Remove the 'End' listener before resetting state
+            goButton.removeEventListener('click', handleGoButtonClick); 
+
+            isNavigating = false;
+            goButtonText.textContent = 'Start';
+            goButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            goButton.classList.add('bg-red-600', 'hover:bg-red-700');
+            
+            // Re-map click to search for a new route
+            goButton.addEventListener('click', handleGoButtonClick);
+            
+            // Hide instructions display
+            navHeader.classList.add('hidden');
+            
+            showMessageBox("Navigation Ended", "Your journey has concluded. Input new locations to begin a new route.");
+            
+            // Reset actual value to empty, but keep live location placeholder
+            startInput.value = '';
+            startInput.placeholder = LIVE_LOCATION_PLACEHOLDER;
+        }
+
+
+        // --- NAVIGATION & EVENT LISTENERS (MAIN HANDLER) ---
+        async function handleGoButtonClick() {
+            let mapStartPoint;     // Address used for Google Maps Query (must be recognizable)
+            let displayStartPoint; // Text displayed to the user (the GPS illusion)
+
+            // 1. Determine Start Point (Using the robust method)
+            if (startInput.value.trim() === '' || startInput.value.trim() === LIVE_LOCATION_PLACEHOLDER) {
+                // Use fixed, recognizable city for MAP URL (Guaranteed to work)
+                mapStartPoint = SIMULATED_GPS_LOCATION; 
+                // Display generic GPS text to the user
+                displayStartPoint = LIVE_LOCATION_PLACEHOLDER; 
+            } else {
+                // User typed a specific address, so use that for both map and display
+                mapStartPoint = startInput.value.trim();
+                displayStartPoint = mapStartPoint;
+            }
+
+            const destination = destinationInput.value.trim();
+
+            if (isNavigating) {
+                // STATE 3: Currently navigating, user clicks "End"
+                stopNavigation();
+                return;
+            }
+
+            if (!destination || destination === 'Type your destinations...') {
+                showMessageBox("Navigation Alert", "Please enter your destination.");
+                return;
+            }
+            
+            // Set inputs to show the user what point was used for searching
+            startInput.value = displayStartPoint;
+            
+            // STATE 1: Starting a new route search
+            setLoading(true, goButton, goButtonText, loadingSpinner);
+            
+            try {
+                // 1. Calculate/Display Route (Map Update)
+                navInstructionRoad.textContent = `Calculating route...`;
+                navInstructionSub.textContent = `from ${displayStartPoint} to ${destination}`;
+                navHeader.classList.remove('hidden');
+
+                const encodedDestination = encodeURIComponent(destination);
+                // ENCODE mapStartPoint (the fixed city) for reliable map query
+                const encodedMapStartPoint = encodeURIComponent(mapStartPoint); 
+
+                // CORRECTED: Secure, functional embed URL format
+                const mapSrc = `https://maps.google.com/maps?q=to+${encodedDestination}+from+${encodedMapStartPoint}&output=embed&maptype=satellite`;
+                
+                mapIframe.src = mapSrc;
+
+                // 2. Transition to "Navigate" button state after map loads/simulated delay
+                setTimeout(() => {
+                    setLoading(false, goButton, goButtonText, loadingSpinner);
+                    goButtonText.textContent = 'Navigate';
+                    
+                    showMessageBox(
+                        `Route Ready`, 
+                        `Route from **${displayStartPoint}** to **${destination}** is ready. Click the **Navigate** button to begin turn-by-turn guidance.`,
+                        []
+                    );
+                    
+                    // Reassign click listener to start navigation on the next click
+                    goButton.removeEventListener('click', handleGoButtonClick);
+                    goButton.addEventListener('click', startNavigation);
+
+                }, 2500); // Simulated route calculation time
+
+            } catch (error) {
+                console.error("Navigation Error:", error);
+                setLoading(false, goButton, goButtonText, loadingSpinner);
+                showMessageBox("System Error: Navigation Failed", "Could not calculate the route.");
+            }
+        }
+
+        /**
+         * Initialize the state after everything is loaded.
+         */
+        function loadInitialState() {
+             // 1. Set start location placeholder to the generic live location text
+            startInput.placeholder = LIVE_LOCATION_PLACEHOLDER;
+            startInput.value = ''; // Ensure the actual value is empty for live location simulation
+
+            // 2. Setup recurring updates and splash screen removal
+            loadTheme(); 
+            playIntroVideo();
+            updateClock();
+            updateWeatherDisplay(); // Initial weather display with correct theme color
+            
+            // Set intervals (every 1 second for clock, every 60 seconds for weather cycle)
+            setInterval(updateClock, 1000);
+            setInterval(cycleWeather, 60000); 
+        }
+
+        // --- Event Listeners Setup ---
+        
+        // Mode Controls Listener
+        modeControls.addEventListener('click', (event) => {
+            const modeId = event.target.id;
+            if (['MANUAL', 'DRIVE', 'REVERSE', 'PARK'].includes(modeId)) {
+                setCarMode(modeId);
+            }
+        });
+        
+        // Navigation Listeners
+        goButton.addEventListener('click', handleGoButtonClick);
+        destinationInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') { handleGoButtonClick(); }
+        });
+        startInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') { handleGoButtonClick(); }
+        });
+        msgCloseButton.addEventListener('click', hideMessageBox);
+        themeToggleButton.addEventListener('click', toggleTheme); 
+
+
+        // Initial State Setup (Calling the new function)
+        document.addEventListener('DOMContentLoaded', loadInitialState);
+
+        /* --- SPLITTER JAVASCRIPT LOGIC (FIXED FOR TOUCH/IPAD) --- */
+        const leftPanel = document.getElementById('left-panel');
+        const rightPanel = document.getElementById('right-panel');
+        const splitter = document.getElementById('splitter');
+        const container = document.getElementById('main-container'); 
+
+        let isDragging = false;
+
+        /**
+         * Gets the client X position from either a mouse or touch event.
+         */
+        function getDragX(e) {
+            // Check for touches array (touch event) or fall back to clientX (mouse event)
+            return e.touches ? e.touches[0].clientX : e.clientX;
+        }
+
+        function startDrag(e) {
+            // Only start dragging if the layout is horizontal (lg:flex-row)
+            if (window.innerWidth >= 1024) { 
+                isDragging = true;
+                document.body.classList.add('no-select');
+                splitter.classList.add('bg-red-700');
+                // Prevent default scrolling/tap action when dragging starts
+                e.preventDefault(); 
+            }
+        }
+
+        function dragMove(e) {
+            if (!isDragging) return;
+            
+            // Only execute drag logic if we are on a desktop-sized screen (to match lg:flex-row)
+            if (window.innerWidth < 1024) return;
+
+            // Use the unified function to get the correct X coordinate
+            const clientX = getDragX(e);
+
+            const containerWidth = container.offsetWidth - splitter.offsetWidth;
+            const containerStart = container.getBoundingClientRect().left;
+            const newLeftPixelWidth = clientX - containerStart;
+            const newLeftWidthPercent = (newLeftPixelWidth / containerWidth) * 100;
+            
+            // Enforce min/max width limits (30% to 70%)
+            const clampedWidth = Math.min(70, Math.max(30, newLeftWidthPercent));
+            
+            // Set flex-basis for horizontal split
+            leftPanel.style.flexBasis = `${clampedWidth}%`;
+            rightPanel.style.flexBasis = `${100 - clampedWidth}%`;
+            
+            // Prevent default touch scrolling during drag
+            if (e.cancelable) {
+                e.preventDefault(); 
+            }
+        }
+
+        function endDrag() {
+            if (isDragging) {
+                isDragging = false;
+                document.body.classList.remove('no-select');
+                splitter.classList.remove('bg-red-700');
+            }
+        }
+
+        // Mouse Listeners
+        splitter.addEventListener('mousedown', startDrag);
+        document.addEventListener('mousemove', dragMove);
+        document.addEventListener('mouseup', endDrag);
+
+        // Touch Listeners (Crucial for iPad/Tablet support)
+        splitter.addEventListener('touchstart', startDrag, { passive: false });
+        document.addEventListener('touchmove', dragMove, { passive: false });
+        document.addEventListener('touchend', endDrag);
+        
+        /* --- Video Error Handling --- */
+        carVideo.addEventListener('error', function(event) {
+            console.error("Video failed to load/play:", event.target.src);
+            const fileName = event.target.src.split('/').pop();
+            missingVideoFilename.textContent = fileName;
+            videoFallbackMessage.classList.remove('hidden');
+        }, true);
+    </script>
+</body>
+</html>
